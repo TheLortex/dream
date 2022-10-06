@@ -12,5 +12,5 @@
 	url = https://github.com/anmonteiro/ocaml-h2.git
 [submodule "src/vendor/paf"]
 	path = src/vendor/paf
-	url = https://github.com/dinosaure/paf-le-chien.git
-	branch = master
+	url = https://github.com/TheLortex/paf-le-chien.git
+	branch = mirage
