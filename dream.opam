@@ -91,6 +91,8 @@ depends: [
   "tyxml" {with-test & >= "4.5.0"}
   "tyxml-jsx" {with-test & >= "4.5.0"}
   "tyxml-ppx" {with-test & >= "4.5.0"}
+  "js_of_ocaml-ppx" {with-test}
+  "js_of_ocaml" {with-test}
 ]
 
 build: [
