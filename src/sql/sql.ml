@@ -18,7 +18,8 @@ let pool_field : (_, Caqti_error.t) Caqti_lwt.Pool.t Message.field =
   Message.new_field ()
 
 let foreign_keys_on =
-  Caqti_request.exec Caqti_type.unit "PRAGMA foreign_keys = ON"
+  Caqti_request.Infix.(->.) Caqti_type.unit
+    Caqti_type.unit "PRAGMA foreign_keys = ON"
 
 let post_connect (module Db : Caqti_lwt.CONNECTION) =
   match Caqti_driver_info.dialect_tag Db.driver_info with
