@@ -7,7 +7,7 @@ let hardcoded_users = [
 
 let user =
   Graphql_lwt.Schema.(obj "user"
-    ~fields:(fun _info -> [
+    ~fields:([
       field "id"
         ~typ:(non_null int)
         ~args:Arg.[]
