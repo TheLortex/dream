@@ -2,9 +2,11 @@ module type DB = Caqti_lwt.CONNECTION
 module R = Caqti_request
 module T = Caqti_type
 
+open R.Infix
+
 let list_comments =
   let query =
-    R.collect T.unit T.(tup2 int string)
+    (T.unit ->* T.(tup2 int string))
       "SELECT id, text FROM comment" in
   fun (module Db : DB) ->
     let%lwt comments_or_error = Db.collect_list query () in
@@ -12,7 +14,7 @@ let list_comments =
 
 let add_comment =
   let query =
-    R.exec T.string
+    (T.string ->. T.unit)
       "INSERT INTO comment (text) VALUES ($1)" in
   fun text (module Db : DB) ->
     let%lwt unit_or_error = Db.exec query text in

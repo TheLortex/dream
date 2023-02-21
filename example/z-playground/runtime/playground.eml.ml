@@ -53,10 +53,6 @@ let welcome =
   </ul>
   <p>Loaded examples:</p>
   <ul>
-%   Examples.list |> List.iter (fun example ->
-      <li><a target="_parent" href="http://dream.as/<%s example %>">
-        <%s example %>
-      </a></li><% ); %>
   </ul>
   </body>
   </html>
