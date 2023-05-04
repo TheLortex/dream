@@ -57,8 +57,6 @@ depends: [
   "duration"
   "emile" {>= "1.1"}
   "letsencrypt" {>= "0.3.0"}
-  "lwt"
-  "lwt_ppx" {>= "1.2.2"}
   "mimic"
   "mirage-time"
   "rresult"

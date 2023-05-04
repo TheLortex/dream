@@ -1,35 +1,23 @@
-type client
-type server
-type 'a message
-type request = client message
-type response = server message
-type handler = request -> response
-type middleware = handler -> handler
+(* This file is part of Dream, released under the MIT license. See LICENSE.md
+   for details, or visit https://github.com/aantron/dream.
 
-module Make
-    (Pclock : Mirage_clock.PCLOCK)
-    (Time : Mirage_time.S)
-    (Stack : Tcpip.Stack.V4V6) : sig
-  (* This file is part of Dream, released under the MIT license. See LICENSE.md
-     for details, or visit https://github.com/aantron/dream.
+   Copyright 2021 Anton Bachin *)
 
-     Copyright 2021 Anton Bachin *)
-
-  (** {1 Types}
+(** {1 Types}
   Dream is built on just five types. The first two are the data types of
   Dream. Both are abstract, even though they appear to have definitions: *)
 
-  type request = client message
-  (** HTTP requests, such as [GET /something HTTP/1.1]. See
+type request = client message
+(** HTTP requests, such as [GET /something HTTP/1.1]. See
       {!section-requests}. *)
 
-  and response = server message
-  (** HTTP responses, such as [200 OK]. See {!section-responses}. *)
+and response = server message
+(** HTTP responses, such as [200 OK]. See {!section-responses}. *)
 
-  (** The remaining three types are for building up Web apps. *)
+(** The remaining three types are for building up Web apps. *)
 
-  and handler = request -> response
-  (** Handlers are asynchronous functions from requests to responses. Example
+and handler = request -> response
+(** Handlers are asynchronous functions from requests to responses. Example
       {{:https://github.com/aantron/dream/tree/master/example/1-hello#files}
       [1-hello]} \[{{:http://dream.as/1-hello} playground}\] shows the simplest
       handler, an anonymous function which we pass to {!Dream.run}. This creates a
@@ -43,8 +31,8 @@ module Make
             Dream.html "Good morning, world!")
       ]} *)
 
-  and middleware = handler -> handler
-  (** Middlewares are functions that take a {!handler}, and run some code before
+and middleware = handler -> handler
+(** Middlewares are functions that take a {!handler}, and run some code before
       or after — producing a “bigger” handler. Example
       {{:https://github.com/aantron/dream/tree/master/example/2-middleware#files}
       [2-middleware]} inserts the {!Dream.logger} middleware into a Web app:
@@ -78,8 +66,8 @@ module Make
           = handler -> request -> response promise
       ]} *)
 
-  and route
-  (** Routes tell {!Dream.router} which handler to select for each request. See
+and route
+(** Routes tell {!Dream.router} which handler to select for each request. See
       {!section-routing} and example
       {{:https://github.com/aantron/dream/tree/master/example/3-router#files}
       [3-router]} \[{{:http://dream.as/3-router/echo/foo} playground}\]. Routes
@@ -94,7 +82,7 @@ module Make
         ]
       ]} *)
 
-  (** {2 Algebra}
+(** {2 Algebra}
 
       The three handler-related types have a vaguely algebraic interpretation:
 
@@ -106,10 +94,10 @@ module Make
 
       {!Dream.scope} implements a left distributive law, making Dream a ring-like
       structure. *)
-  (** {2 Helpers} *)
+(** {2 Helpers} *)
 
-  and 'a message = 'a Dream_pure.Message.message
-  (** ['a message], pronounced “any message,” allows some functions to take either
+and 'a message = 'a Dream_pure.Message.message
+(** ['a message], pronounced “any message,” allows some functions to take either
       {!type-request} or {!type-response} as arguments, because both are defined
       in terms of ['a message]. For example, in {!section-headers}:
 
@@ -117,18 +105,18 @@ module Make
         val Dream.header : string -> 'a message -> string option
       ]} *)
 
-  and client = Dream_pure.Message.client
+and client = Dream_pure.Message.client
 
-  and server = Dream_pure.Message.server
-  (** Type parameters for {!message} for {!type-request} and {!type-response},
+and server = Dream_pure.Message.server
+(** Type parameters for {!message} for {!type-request} and {!type-response},
       respectively. These are “phantom” types. They have no meaning other than
       they are different from each other. Dream only ever creates [client message]
       and [server message]. [client] and [server] are never mentioned again in the
       docs. *)
-  (* TODO These docs need to be clarified. *)
-  (* TODO Hide all the Dream_pure type equalities. *)
+(* TODO These docs need to be clarified. *)
+(* TODO Hide all the Dream_pure type equalities. *)
 
-  (** Dream uses {{:https://github.com/ocsigen/lwt} Lwt} for promises and
+(** Dream uses {{:https://github.com/ocsigen/lwt} Lwt} for promises and
       asynchronous I/O. See example
       {{:https://github.com/aantron/dream/tree/master/example/5-promise#files}
       [5-promise]} \[{{:http://dream.as/5-promise} playground}\].
@@ -140,82 +128,82 @@ module Make
       exception backtrace — though, in most cases, you should still extend it with
       [raise] and [let%lwt], instead. *)
 
-  (** {1 Methods} *)
+(** {1 Methods} *)
 
-  type method_ =
-    [ `GET
-    | `POST
-    | `PUT
-    | `DELETE
-    | `HEAD
-    | `CONNECT
-    | `OPTIONS
-    | `TRACE
-    | `PATCH
-    | `Method of string ]
-  (** HTTP request methods. See
+type method_ =
+  [ `GET
+  | `POST
+  | `PUT
+  | `DELETE
+  | `HEAD
+  | `CONNECT
+  | `OPTIONS
+  | `TRACE
+  | `PATCH
+  | `Method of string ]
+(** HTTP request methods. See
       {{:https://tools.ietf.org/html/rfc7231#section-4.3} RFC 7231 §4.2},
       {{:https://tools.ietf.org/html/rfc5789#page-2} RFC 5789 §2}, and
       {{:https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods} MDN}. *)
 
-  val method_to_string : [< method_] -> string
-  (** Evaluates to a string representation of the given method. For example,
+val method_to_string : [< method_] -> string
+(** Evaluates to a string representation of the given method. For example,
       [`GET] is converted to ["GET"]. *)
 
-  val string_to_method : string -> method_
-  (** Evaluates to the {!type-method_} corresponding to the given method
+val string_to_method : string -> method_
+(** Evaluates to the {!type-method_} corresponding to the given method
       string. *)
 
-  val methods_equal : [< method_] -> [< method_] -> bool
-  (** Compares two methods, such that equal methods are detected even if one is
+val methods_equal : [< method_] -> [< method_] -> bool
+(** Compares two methods, such that equal methods are detected even if one is
       represented as a string. For example,
 
       {[
         Dream.methods_equal `GET (`Method "GET") = true
       ]} *)
 
-  val normalize_method : [< method_] -> method_
-  (** Converts methods represented as strings to variants. Methods generated by
+val normalize_method : [< method_] -> method_
+(** Converts methods represented as strings to variants. Methods generated by
       Dream are always normalized.
 
       {[
         Dream.normalize_method (`Method "GET") = `GET
       ]} *)
 
-  (** {1:status_codes Status codes} *)
+(** {1:status_codes Status codes} *)
 
-  type informational =
-    [ `Continue
-    | `Switching_Protocols ]
-  (** Informational ([1xx]) status codes. See
+type informational =
+  [ `Continue
+  | `Switching_Protocols ]
+(** Informational ([1xx]) status codes. See
       {{:https://tools.ietf.org/html/rfc7231#section-6.2} RFC 7231 §6.2} and
       {{:https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#information_responses}
       MDN}. [101 Switching Protocols] is generated internally by
       {!Dream.val-websocket}. It is usually not necessary to use it directly. *)
 
-  type successful =
-    [ `OK
-    | `Created
-    | `Accepted
-    | `Non_Authoritative_Information
-    | `No_Content
-    | `Reset_Content
-    | `Partial_Content ]
-  (** Successful ([2xx]) status codes. See
+type successful =
+  [ `OK
+  | `Created
+  | `Accepted
+  | `Non_Authoritative_Information
+  | `No_Content
+  | `Reset_Content
+  | `Partial_Content ]
+(** Successful ([2xx]) status codes. See
       {{:https://tools.ietf.org/html/rfc7231#section-6.3} RFC 7231 §6.3},
       {{:https://tools.ietf.org/html/rfc7233#section-4.1} RFC 7233 §4.1} and
       {{:https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#successful_responses}
       MDN}. The most common is [200 OK]. *)
 
-  type redirection =
-    [ `Multiple_Choices
-    | `Moved_Permanently
-    | `Found
-    | `See_Other
-    | `Not_Modified
-    | `Temporary_Redirect
-    | `Permanent_Redirect ]
-  (** Redirection ([3xx]) status codes. See
+type redirection =
+  [ `Multiple_Choices
+  | `Moved_Permanently
+  | `Found
+  | `See_Other
+  | `Not_Modified
+  | `Temporary_Redirect
+  | `Permanent_Redirect ]
+(** Redirection ([3xx]) status codes. See
       {{:https://tools.ietf.org/html/rfc7231#section-6.4} RFC 7231 §6.4} and
       {{:https://tools.ietf.org/html/rfc7538#section-3} RFC 7538 §3}, and
       {{:https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages}
@@ -223,33 +211,33 @@ module Make
       request, especially after a form submission. Use [301 Moved Permanently]
       for permanent redirections. *)
 
-  type client_error =
-    [ `Bad_Request
-    | `Unauthorized
-    | `Payment_Required
-    | `Forbidden
-    | `Not_Found
-    | `Method_Not_Allowed
-    | `Not_Acceptable
-    | `Proxy_Authentication_Required
-    | `Request_Timeout
-    | `Conflict
-    | `Gone
-    | `Length_Required
-    | `Precondition_Failed
-    | `Payload_Too_Large
-    | `URI_Too_Long
-    | `Unsupported_Media_Type
-    | `Range_Not_Satisfiable
-    | `Expectation_Failed
-    | `Misdirected_Request
-    | `Too_Early
-    | `Upgrade_Required
-    | `Precondition_Required
-    | `Too_Many_Requests
-    | `Request_Header_Fields_Too_Large
-    | `Unavailable_For_Legal_Reasons ]
-  (** Client error ([4xx]) status codes. The most common are [400 Bad Request],
+type client_error =
+  [ `Bad_Request
+  | `Unauthorized
+  | `Payment_Required
+  | `Forbidden
+  | `Not_Found
+  | `Method_Not_Allowed
+  | `Not_Acceptable
+  | `Proxy_Authentication_Required
+  | `Request_Timeout
+  | `Conflict
+  | `Gone
+  | `Length_Required
+  | `Precondition_Failed
+  | `Payload_Too_Large
+  | `URI_Too_Long
+  | `Unsupported_Media_Type
+  | `Range_Not_Satisfiable
+  | `Expectation_Failed
+  | `Misdirected_Request
+  | `Too_Early
+  | `Upgrade_Required
+  | `Precondition_Required
+  | `Too_Many_Requests
+  | `Request_Header_Fields_Too_Large
+  | `Unavailable_For_Legal_Reasons ]
+(** Client error ([4xx]) status codes. The most common are [400 Bad Request],
       [401 Unauthorized], [403 Forbidden], and, of course, [404 Not Found].
 
       See
@@ -270,140 +258,142 @@ module Make
       - {{:https://tools.ietf.org/html/rfc7725} RFC 7725} for
         [451 Unavailable For Legal Reasons]. *)
 
-  type server_error =
-    [ `Internal_Server_Error
-    | `Not_Implemented
-    | `Bad_Gateway
-    | `Service_Unavailable
-    | `Gateway_Timeout
-    | `HTTP_Version_Not_Supported ]
-  (** Server error ([5xx]) status codes. See
+type server_error =
+  [ `Internal_Server_Error
+  | `Not_Implemented
+  | `Bad_Gateway
+  | `Service_Unavailable
+  | `Gateway_Timeout
+  | `HTTP_Version_Not_Supported ]
+(** Server error ([5xx]) status codes. See
       {{:https://tools.ietf.org/html/rfc7231#section-6.6} RFC 7231 §6.6} and
       {{:https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses}
       MDN}. The most common of these is [500 Internal Server Error]. *)
 
-  type standard_status =
-    [ informational
-    | successful
-    | redirection
-    | client_error
-    | server_error ]
-  (** Sum of all the status codes declared above. *)
+type standard_status =
+  [ informational
+  | successful
+  | redirection
+  | client_error
+  | server_error ]
+(** Sum of all the status codes declared above. *)
 
-  type status =
-    [ standard_status
-    | `Status of int ]
-  (** Status codes, including codes directly represented as integers. See the
+type status =
+  [ standard_status
+  | `Status of int ]
+(** Status codes, including codes directly represented as integers. See the
       types above for the full list and references. *)
 
-  val status_to_string : [< status] -> string
-  (** Evaluates to a string representation of the given status. For example,
+val status_to_string : [< status] -> string
+(** Evaluates to a string representation of the given status. For example,
       [`Not_Found] and [`Status 404] are both converted to ["Not Found"]. Numbers
       are used for unknown status codes. For example, [`Status 567] is converted
       to ["567"]. *)
 
-  val status_to_reason : [< status] -> string option
-  (** Converts known status codes to their string representations. Evaluates to
+val status_to_reason : [< status] -> string option
+(** Converts known status codes to their string representations. Evaluates to
       [None] for unknown status codes. *)
 
-  val status_to_int : [< status] -> int
-  (** Evaluates to the numeric value of the given status code. *)
+val status_to_int : [< status] -> int
+(** Evaluates to the numeric value of the given status code. *)
 
-  val int_to_status : int -> status
-  (** Evaluates to the symbolic representation of the status code with the given
+val int_to_status : int -> status
+(** Evaluates to the symbolic representation of the status code with the given
       number. *)
 
-  val is_informational : [< status] -> bool
-  (** Evaluates to [true] if the given status is either from type
+val is_informational : [< status] -> bool
+(** Evaluates to [true] if the given status is either from type
       {!Dream.informational}, or is in the range [`Status 100] — [`Status 199]. *)
 
-  val is_successful : [< status] -> bool
-  (** Like {!Dream.is_informational}, but for type {!Dream.successful} and numeric
+val is_successful : [< status] -> bool
+(** Like {!Dream.is_informational}, but for type {!Dream.successful} and numeric
       codes [2xx]. *)
 
-  val is_redirection : [< status] -> bool
-  (** Like {!Dream.is_informational}, but for type {!Dream.redirection} and
+val is_redirection : [< status] -> bool
+(** Like {!Dream.is_informational}, but for type {!Dream.redirection} and
       numeric codes [3xx]. *)
 
-  val is_client_error : [< status] -> bool
-  (** Like {!Dream.is_informational}, but for type {!Dream.client_error} and
+val is_client_error : [< status] -> bool
+(** Like {!Dream.is_informational}, but for type {!Dream.client_error} and
       numeric codes [4xx]. *)
 
-  val is_server_error : [< status] -> bool
-  (** Like {!Dream.is_informational}, but for type {!Dream.server_error} and
+val is_server_error : [< status] -> bool
+(** Like {!Dream.is_informational}, but for type {!Dream.server_error} and
       numeric codes [5xx]. *)
 
-  val status_codes_equal : [< status] -> [< status] -> bool
-  (** Compares two status codes, such that equal codes are detected even if one is
+val status_codes_equal : [< status] -> [< status] -> bool
+(** Compares two status codes, such that equal codes are detected even if one is
       represented as a number. For example,
 
       {[
         Dream.status_codes_equal `Not_Found (`Status 404) = true
       ]} *)
 
-  val normalize_status : [< status] -> status
-  (** Converts status codes represented as numbers to variants. Status codes
+val normalize_status : [< status] -> status
+(** Converts status codes represented as numbers to variants. Status codes
       generated by Dream are always normalized.
 
       {[
         Dream.normalize_status (`Status 404) = `Not_Found
       ]} *)
 
-  (** {1 Requests} *)
+(** {1 Requests} *)
 
-  val client : request -> string
-  (** Client sending the request. For example, ["127.0.0.1:56001"]. *)
+val client : request -> string
+(** Client sending the request. For example, ["127.0.0.1:56001"]. *)
 
-  val method_ : request -> method_
-  (** Request method. For example, [`GET]. *)
+val method_ : request -> method_
+(** Request method. For example, [`GET]. *)
 
-  val target : request -> string
-  (** Request target. For example, ["/foo/bar"]. *)
+val target : request -> string
+(** Request target. For example, ["/foo/bar"]. *)
 
-  (**/**)
+(**/**)
 
-  val prefix : request -> string
+val prefix : request -> string
 
-  (**/**)
+(**/**)
 
-  (**/**)
-  val path : request -> string list
+(**/**)
+
+val path : request -> string list
   [@@ocaml.deprecated
-  "Router path access is being removed from the API. Comment at
-  https://github.com/aantron/dream/issues
-  "]
-  (** Parsed request path. For example, ["foo"; "bar"]. *)
-  (* TODO If not removing this, move it to section Routing. *)
-  (**/**)
+    "Router path access is being removed from the API. Comment at\n\
+    \  https://github.com/aantron/dream/issues\n\
+    \  "]
+(** Parsed request path. For example, ["foo"; "bar"]. *)
 
-  val set_client : request -> string -> unit
-  (** Replaces the client. See {!Dream.val-client}. *)
+(* TODO If not removing this, move it to section Routing. *)
+(**/**)
 
-  val set_method_ : request -> [< method_ ] -> unit
-  (** Replaces the method. See {!Dream.type-method_}. *)
+val set_client : request -> string -> unit
+(** Replaces the client. See {!Dream.val-client}. *)
 
-  val query : request -> string -> string option
-  (** First query parameter with the given name. See
+val set_method_ : request -> [< method_] -> unit
+(** Replaces the method. See {!Dream.type-method_}. *)
+
+val query : request -> string -> string option
+(** First query parameter with the given name. See
       {{:https://tools.ietf.org/html/rfc3986#section-3.4} RFC 3986 §3.4} and
       example
       {{:https://github.com/aantron/dream/tree/master/example/w-query#files}
       [w-query]}. *)
 
-  val queries : request -> string -> string list
-  (** All query parameters with the given name. *)
+val queries : request -> string -> string list
+(** All query parameters with the given name. *)
 
-  val all_queries : request -> (string * string) list
-  (** Entire query string as a name-value list. *)
+val all_queries : request -> (string * string) list
+(** Entire query string as a name-value list. *)
 
-  (** {1 Responses} *)
+(** {1 Responses} *)
 
-  val response :
-    ?status:[< status] ->
-    ?code:int ->
-    ?headers:(string * string) list ->
-    string ->
-    response
-  (** Creates a new {!type-response} with the given string as body. [~code] and
+val response :
+  ?status:[< status] ->
+  ?code:int ->
+  ?headers:(string * string) list ->
+  string ->
+  response
+(** Creates a new {!type-response} with the given string as body. [~code] and
       [~status] are two ways to specify the {!type-status} code, which is [200 OK]
       by default. The headers are empty by default.
 
@@ -414,22 +404,22 @@ module Make
       wrapper like {!Dream.html}. The modern [Content-Type:] for HTML is
       [text/html; charset=utf-8]. See {!Dream.text_html}. *)
 
-  val respond :
-    ?status:[< status] ->
-    ?code:int ->
-    ?headers:(string * string) list ->
-    string ->
-    response
-  (** Same as {!Dream.val-response}, but the new {!type-response} is wrapped in a
+val respond :
+  ?status:[< status] ->
+  ?code:int ->
+  ?headers:(string * string) list ->
+  string ->
+  response
+(** Same as {!Dream.val-response}, but the new {!type-response} is wrapped in a
       {!type-promise}. *)
 
-  val html :
-    ?status:[< status] ->
-    ?code:int ->
-    ?headers:(string * string) list ->
-    string ->
-    response
-  (** Same as {!Dream.respond}, but adds [Content-Type: text/html; charset=utf-8].
+val html :
+  ?status:[< status] ->
+  ?code:int ->
+  ?headers:(string * string) list ->
+  string ->
+  response
+(** Same as {!Dream.respond}, but adds [Content-Type: text/html; charset=utf-8].
       See {!Dream.text_html}.
 
       As your Web app develops, consider adding [Content-Security-Policy] headers,
@@ -438,23 +428,23 @@ module Make
       [w-content-security-policy]}. These headers are completely optional, but
       they can provide an extra layer of defense for a mature app. *)
 
-  val json :
-    ?status:[< status] ->
-    ?code:int ->
-    ?headers:(string * string) list ->
-    string ->
-    response
-  (** Same as {!Dream.respond}, but adds [Content-Type: application/json]. See
+val json :
+  ?status:[< status] ->
+  ?code:int ->
+  ?headers:(string * string) list ->
+  string ->
+  response
+(** Same as {!Dream.respond}, but adds [Content-Type: application/json]. See
       {!Dream.application_json}. *)
 
-  val redirect :
-    ?status:[< redirection] ->
-    ?code:int ->
-    ?headers:(string * string) list ->
-    request ->
-    string ->
-    response
-  (** Creates a new {!type-response}. Adds a [Location:] header with the given
+val redirect :
+  ?status:[< redirection] ->
+  ?code:int ->
+  ?headers:(string * string) list ->
+  request ->
+  string ->
+  response
+(** Creates a new {!type-response}. Adds a [Location:] header with the given
       string. The default status code is [303 See Other], for a temporary
       redirection. Use [~status:`Moved_Permanently] or [~code:301] for a permanent
       redirection.
@@ -465,20 +455,20 @@ module Make
       The {!type-request} is used for retrieving the site prefix, if the string is
       an absolute path. Most applications don't have a site prefix. *)
 
-  val empty : ?headers:(string * string) list -> status -> response
-  (** Same as {!Dream.val-response} with the empty string for a body. *)
+val empty : ?headers:(string * string) list -> status -> response
+(** Same as {!Dream.val-response} with the empty string for a body. *)
 
-  type websocket
-  (** A WebSocket connection. See {{:https://tools.ietf.org/html/rfc6455} RFC
+type websocket
+(** A WebSocket connection. See {{:https://tools.ietf.org/html/rfc6455} RFC
     6455} and
     {{:https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API} MDN}. *)
 
-  val websocket :
-    ?headers:(string * string) list ->
-    ?close:bool ->
-    (websocket -> unit) ->
-    response
-  (** Creates a fresh [101 Switching Protocols] response. Once this response is
+val websocket :
+  ?headers:(string * string) list ->
+  ?close:bool ->
+  (websocket -> unit) ->
+  response
+(** Creates a fresh [101 Switching Protocols] response. Once this response is
     returned to Dream's HTTP layer, the callback is passed a new
     {!type-websocket}, and the application can begin using it. See example
     {{:https://github.com/aantron/dream/tree/master/example/k-websocket#files}
@@ -494,23 +484,23 @@ module Make
     returns or raises an exception. Pass [~close:false] to suppress this
     behavior. *)
 
-  type text_or_binary =
-    [ `Text
-    | `Binary ]
-  (** See {!send} and {!receive_fragment}. *)
+type text_or_binary =
+  [ `Text
+  | `Binary ]
+(** See {!send} and {!receive_fragment}. *)
 
-  type end_of_message =
-    [ `End_of_message
-    | `Continues ]
-  (** See {!send} and {!receive_fragment}. *)
+type end_of_message =
+  [ `End_of_message
+  | `Continues ]
+(** See {!send} and {!receive_fragment}. *)
 
-  val send :
-    ?text_or_binary:[< text_or_binary] ->
-    ?end_of_message:[< end_of_message] ->
-    websocket ->
-    string ->
-    unit
-  (** Sends a single WebSocket message. The WebSocket is ready another message
+val send :
+  ?text_or_binary:[< text_or_binary] ->
+  ?end_of_message:[< end_of_message] ->
+  websocket ->
+  string ->
+  unit
+(** Sends a single WebSocket message. The WebSocket is ready another message
       when the promise resolves.
 
       With [~text_or_binary:`Text], the default, the message is interpreted as a
@@ -525,49 +515,49 @@ module Make
       [~end_of_message] is ignored for now, as the WebSocket library underlying
       Dream does not support sending message fragments yet. *)
 
-  val receive : websocket -> string option
-  (** Receives a message. If the WebSocket is closed before a complete message
+val receive : websocket -> string option
+(** Receives a message. If the WebSocket is closed before a complete message
       arrives, the result is [None]. *)
 
-  val receive_fragment :
-    websocket -> (string * text_or_binary * end_of_message) option
-  (** Receives a single fragment of a message, streaming it. *)
+val receive_fragment :
+  websocket -> (string * text_or_binary * end_of_message) option
+(** Receives a single fragment of a message, streaming it. *)
 
-  val close_websocket : ?code:int -> websocket -> unit
-  (** Closes the WebSocket. [~code] is usually not necessary, but is needed for
+val close_websocket : ?code:int -> websocket -> unit
+(** Closes the WebSocket. [~code] is usually not necessary, but is needed for
       some protocols based on WebSockets. See
       {{:https://tools.ietf.org/html/rfc6455#section-7.4} RFC 6455 §7.4}. *)
 
-  val status : response -> status
-  (** Response {!type-status}. For example, [`OK]. *)
+val status : response -> status
+(** Response {!type-status}. For example, [`OK]. *)
 
-  (** {1 Headers} *)
+(** {1 Headers} *)
 
-  val header : 'a message -> string -> string option
-  (** First header with the given name. Header names are case-insensitive. See
+val header : 'a message -> string -> string option
+(** First header with the given name. Header names are case-insensitive. See
       {{:https://tools.ietf.org/html/rfc7230#section-3.2} RFC 7230 §3.2} and
       {{:https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers} MDN}. *)
 
-  val headers : 'a message -> string -> string list
-  (** All headers with the given name. *)
+val headers : 'a message -> string -> string list
+(** All headers with the given name. *)
 
-  val all_headers : 'a message -> (string * string) list
-  (** Entire header set as name-value list. *)
+val all_headers : 'a message -> (string * string) list
+(** Entire header set as name-value list. *)
 
-  val has_header : 'a message -> string -> bool
-  (** Whether the message has a header with the given name. *)
+val has_header : 'a message -> string -> bool
+(** Whether the message has a header with the given name. *)
 
-  val add_header : 'a message -> string -> string -> unit
-  (** Appends a header with the given name and value. Does not remove any existing
+val add_header : 'a message -> string -> string -> unit
+(** Appends a header with the given name and value. Does not remove any existing
       headers with the same name. *)
 
-  val drop_header : 'a message -> string -> unit
-  (** Removes all headers with the given name. *)
+val drop_header : 'a message -> string -> unit
+(** Removes all headers with the given name. *)
 
-  val set_header : 'a message -> string -> string -> unit
-  (** Equivalent to {!Dream.drop_header} followed by {!Dream.add_header}. *)
+val set_header : 'a message -> string -> string -> unit
+(** Equivalent to {!Dream.drop_header} followed by {!Dream.add_header}. *)
 
-  (** {1 Cookies}
+(** {1 Cookies}
 
       {!Dream.set_cookie} and {!Dream.cookie} are designed for round-tripping
       secure cookies. The most secure settings applicable to the current server
@@ -592,22 +582,22 @@ module Make
       the inferred security settings. If you use them, pass the same arguments to
       {!Dream.cookie} to automatically undo the result. *)
 
-  val set_cookie :
-    ?prefix:[< `Host | `Secure] option ->
-    ?encrypt:bool ->
-    ?expires:float ->
-    ?max_age:float ->
-    ?domain:string ->
-    ?path:string option ->
-    ?secure:bool ->
-    ?http_only:bool ->
-    ?same_site:[< `Strict | `Lax | `None] option ->
-    response ->
-    request ->
-    string ->
-    string ->
-    unit
-  (** Appends a [Set-Cookie:] header to the {!type-response}. Infers the most
+val set_cookie :
+  ?prefix:[< `Host | `Secure] option ->
+  ?encrypt:bool ->
+  ?expires:float ->
+  ?max_age:float ->
+  ?domain:string ->
+  ?path:string option ->
+  ?secure:bool ->
+  ?http_only:bool ->
+  ?same_site:[< `Strict | `Lax | `None] option ->
+  response ->
+  request ->
+  string ->
+  string ->
+  unit
+(** Appends a [Set-Cookie:] header to the {!type-response}. Infers the most
       secure defaults from the {!type-request}.
 
       {[
@@ -683,33 +673,33 @@ module Make
       {!Dream.to_set_cookie} is a “raw” version of this function that does not do
       any inference. *)
 
-  val drop_cookie :
-    ?prefix:[< `Host | `Secure] option ->
-    ?domain:string ->
-    ?path:string option ->
-    ?secure:bool ->
-    ?http_only:bool ->
-    ?same_site:[< `Strict | `Lax | `None] option ->
-    response ->
-    request ->
-    string ->
-    unit
-  (** Deletes the given cookie.
+val drop_cookie :
+  ?prefix:[< `Host | `Secure] option ->
+  ?domain:string ->
+  ?path:string option ->
+  ?secure:bool ->
+  ?http_only:bool ->
+  ?same_site:[< `Strict | `Lax | `None] option ->
+  response ->
+  request ->
+  string ->
+  unit
+(** Deletes the given cookie.
 
       This function works by calling {!Dream.set_cookie}, and setting the cookie
       to expire in the past. Pass all the same optional values that you would pass
       to {!Dream.set_cookie}, to make sure that the same cookie is deleted. *)
 
-  val cookie :
-    ?prefix:[< `Host | `Secure] option ->
-    ?decrypt:bool ->
-    ?domain:string ->
-    ?path:string option ->
-    ?secure:bool ->
-    request ->
-    string ->
-    string option
-  (** First cookie with the given name. See example
+val cookie :
+  ?prefix:[< `Host | `Secure] option ->
+  ?decrypt:bool ->
+  ?domain:string ->
+  ?path:string option ->
+  ?secure:bool ->
+  request ->
+  string ->
+  string option
+(** First cookie with the given name. See example
       {{:https://github.com/aantron/dream/tree/master/example/c-cookie#files}
       [c-cookie]}.
 
@@ -722,24 +712,24 @@ module Make
       implementing a transparent cookie round trip with the most secure attributes
       applicable. *)
 
-  val all_cookies : request -> (string * string) list
-  (** All cookies, with raw names and values. *)
+val all_cookies : request -> (string * string) list
+(** All cookies, with raw names and values. *)
 
-  (** {1 Bodies} *)
+(** {1 Bodies} *)
 
-  val body : 'a message -> string Eio.Promise.or_exn
-  (** Retrieves the entire body. See example
+val body : 'a message -> string Eio.Promise.or_exn
+(** Retrieves the entire body. See example
       {{:https://github.com/aantron/dream/tree/master/example/6-echo#files}
       [6-echo]}. *)
 
-  val set_body : 'a message -> string -> unit
-  (** Replaces the body. *)
+val set_body : 'a message -> string -> unit
+(** Replaces the body. *)
 
-  (** {2 Low-level streaming} *)
+(** {2 Low-level streaming} *)
 
-  type buffer =
-    (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
-  (** Byte arrays in the C heap. See
+type buffer =
+  (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
+(** Byte arrays in the C heap. See
       {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Bigarray.Array1.html}
       [Bigarray.Array1]}. This type is also found in several libraries installed
       by Dream, so their functions can be used with {!Dream.buffer}:
@@ -750,26 +740,26 @@ module Make
       - {{:https://github.com/mirage/ocaml-cstruct/blob/9a8b9a79bdfa2a1b8455bc26689e0228cc6fac8e/lib/cstruct.mli#L139}
         [Cstruct.buffer]} in Cstruct. *)
 
-  (* TODO What should the body stream retrieval function be called? *)
-  (* TODO Remove old functions from signature. *)
-  (* TODO Should there be a section for this somewhere? Probably "low-level
-      streaming" should be promoted to a top-level section, Streaming. *)
+(* TODO What should the body stream retrieval function be called? *)
+(* TODO Remove old functions from signature. *)
+(* TODO Should there be a section for this somewhere? Probably "low-level
+    streaming" should be promoted to a top-level section, Streaming. *)
 
-  (** {2 Streaming} *)
+(** {2 Streaming} *)
 
-  type stream
+type stream
 
-  val body_stream : request -> stream
-  (** A stream that can be used to gradually read the request's body. *)
+val body_stream : request -> stream
+(** A stream that can be used to gradually read the request's body. *)
 
-  val stream :
-    ?status:[< status] ->
-    ?code:int ->
-    ?headers:(string * string) list ->
-    ?close:bool ->
-    (stream -> unit) ->
-    response
-  (** Creates a response with a {!type-stream} open for writing, and passes the
+val stream :
+  ?status:[< status] ->
+  ?code:int ->
+  ?headers:(string * string) list ->
+  ?close:bool ->
+  (stream -> unit) ->
+  response
+(** Creates a response with a {!type-stream} open for writing, and passes the
     stream to the callback when it is ready. See example
     {{:https://github.com/aantron/dream/tree/master/example/j-stream#files}
     [j-stream]}.
@@ -783,93 +773,93 @@ module Make
     [Dream.stream] automatically closes the stream when the callback returns or
     raises an exception. Pass [~close:false] to suppress this behavior. *)
 
-  val read : stream -> string option
-  (** Retrieves a body chunk. See example
+val read : stream -> string option
+(** Retrieves a body chunk. See example
       {{:https://github.com/aantron/dream/tree/master/example/j-stream#files}
       [j-stream]}. *)
-  (* TODO Document difference between receiving a request and receiving on a
-     WebSocket. *)
+(* TODO Document difference between receiving a request and receiving on a
+   WebSocket. *)
 
-  val write : stream -> string -> unit
-  (** Streams out the string. The promise is fulfilled when the response can
+val write : stream -> string -> unit
+(** Streams out the string. The promise is fulfilled when the response can
       accept more writes. *)
-  (* TODO Document clearly which of the writing functions can raise exceptions. *)
+(* TODO Document clearly which of the writing functions can raise exceptions. *)
 
-  val flush : stream -> unit
-  (** Flushes the stream's write buffer. Data is sent to the client. *)
+val flush : stream -> unit
+(** Flushes the stream's write buffer. Data is sent to the client. *)
 
-  val close : stream -> unit
-  (** Closes the stream. *)
+val close : stream -> unit
+(** Closes the stream. *)
 
-  val client_stream : 'a message -> stream
-  val server_stream : 'a message -> stream
+val client_stream : 'a message -> stream
+val server_stream : 'a message -> stream
 
-  (* TODO Document that this is for middlewares that are transforming a response
-      stream or a WebSocket. *)
-  val set_client_stream : 'a message -> stream -> unit
+(* TODO Document that this is for middlewares that are transforming a response
+    stream or a WebSocket. *)
+val set_client_stream : 'a message -> stream -> unit
 
-  (* TODO Normalize with with_stream, or add a separate with_server_stream. *)
-  val set_server_stream : 'a message -> stream -> unit
+(* TODO Normalize with with_stream, or add a separate with_server_stream. *)
+val set_server_stream : 'a message -> stream -> unit
 
-  (* TODO Probably even close can be made optional. exn can be made optional. *)
-  (* TODO Argument order? *)
-  val read_stream :
-    stream ->
-    data:(buffer -> int -> int -> bool -> bool -> unit) ->
-    flush:(unit -> unit) ->
-    ping:(buffer -> int -> int -> unit) ->
-    pong:(buffer -> int -> int -> unit) ->
-    close:(int -> unit) ->
-    exn:(exn -> unit) ->
-    unit
-  (** Waits for the next stream event, and calls:
+(* TODO Probably even close can be made optional. exn can be made optional. *)
+(* TODO Argument order? *)
+val read_stream :
+  stream ->
+  data:(buffer -> int -> int -> bool -> bool -> unit) ->
+  flush:(unit -> unit) ->
+  ping:(buffer -> int -> int -> unit) ->
+  pong:(buffer -> int -> int -> unit) ->
+  close:(int -> unit) ->
+  exn:(exn -> unit) ->
+  unit
+(** Waits for the next stream event, and calls:
 
       - [~buffer] with an offset and length, if a {!type-buffer} is written,
       - [~close] if close is requested, and
       - [~exn] to report an exception. *)
 
-  val write_stream :
-    stream ->
-    buffer ->
-    int ->
-    int ->
-    bool ->
-    bool ->
-    close:(int -> unit) ->
-    exn:(exn -> unit) ->
-    (unit -> unit) ->
-    unit
+val write_stream :
+  stream ->
+  buffer ->
+  int ->
+  int ->
+  bool ->
+  bool ->
+  close:(int -> unit) ->
+  exn:(exn -> unit) ->
+  (unit -> unit) ->
+  unit
 
-  val flush_stream :
-    stream -> close:(int -> unit) -> exn:(exn -> unit) -> (unit -> unit) -> unit
+val flush_stream :
+  stream -> close:(int -> unit) -> exn:(exn -> unit) -> (unit -> unit) -> unit
 
-  val ping_stream :
-    stream ->
-    buffer ->
-    int ->
-    int ->
-    close:(int -> unit) ->
-    exn:(exn -> unit) ->
-    (unit -> unit) ->
-    unit
+val ping_stream :
+  stream ->
+  buffer ->
+  int ->
+  int ->
+  close:(int -> unit) ->
+  exn:(exn -> unit) ->
+  (unit -> unit) ->
+  unit
 
-  val pong_stream :
-    stream ->
-    buffer ->
-    int ->
-    int ->
-    close:(int -> unit) ->
-    exn:(exn -> unit) ->
-    (unit -> unit) ->
-    unit
+val pong_stream :
+  stream ->
+  buffer ->
+  int ->
+  int ->
+  close:(int -> unit) ->
+  exn:(exn -> unit) ->
+  (unit -> unit) ->
+  unit
 
-  val close_stream : stream -> int -> unit
-  val abort_stream : stream -> exn -> unit
-  (* TODO Line widths above. *)
+val close_stream : stream -> int -> unit
+val abort_stream : stream -> exn -> unit
+(* TODO Line widths above. *)
 
-  (* TODO Ergonomics of this stream surface API. *)
+(* TODO Ergonomics of this stream surface API. *)
 
-  (** {1 JSON}
+(** {1 JSON}
 
       Dream presently recommends using
       {{:https://github.com/ocaml-community/yojson#readme} Yojson}. See also
@@ -880,8 +870,8 @@ module Make
       {{:https://github.com/aantron/dream/tree/master/example/e-json#files}
       [e-json]}. *)
 
-  val origin_referrer_check : middleware
-  (** CSRF protection for AJAX requests. Either the method must be [`GET] or
+val origin_referrer_check : middleware
+(** CSRF protection for AJAX requests. Either the method must be [`GET] or
       [`HEAD], or:
 
       - [Origin:] or [Referer:] must be present, and
@@ -905,7 +895,7 @@ module Make
       send them to the client (for instance, in [<meta>] tags of a single-page
       application), and require their presence in an [X-CSRF-Token:] header. *)
 
-  (** {1 Forms}
+(** {1 Forms}
 
       {!Dream.form_tag} and {!Dream.val-form} round-trip secure forms.
       {!Dream.form_tag} is used inside a template to generate a form header with a
@@ -929,15 +919,15 @@ module Make
       {{:https://github.com/aantron/dream/tree/master/example/d-form#files}
       [d-form]} \[{{:http://dream.as/d-form} playground}\]. *)
 
-  type 'a form_result =
-    [ `Ok of 'a
-    | `Expired of 'a * float
-    | `Wrong_session of 'a
-    | `Invalid_token of 'a
-    | `Missing_token of 'a
-    | `Many_tokens of 'a
-    | `Wrong_content_type ]
-  (** Form CSRF checking results, in order from least to most severe. See
+type 'a form_result =
+  [ `Ok of 'a
+  | `Expired of 'a * float
+  | `Wrong_session of 'a
+  | `Invalid_token of 'a
+  | `Missing_token of 'a
+  | `Many_tokens of 'a
+  | `Wrong_content_type ]
+(** Form CSRF checking results, in order from least to most severe. See
       {!Dream.val-form} and example
       {{:https://github.com/aantron/dream/tree/master/example/d-form#files}
       [d-form]}.
@@ -950,8 +940,8 @@ module Make
       activity, or tokens so old that decryption keys have since been rotated on
       the server. *)
 
-  val form : ?csrf:bool -> request -> (string * string) list form_result
-  (** Parses the request body as a form. Performs CSRF checks. Use
+val form : ?csrf:bool -> request -> (string * string) list form_result
+(** Parses the request body as a form. Performs CSRF checks. Use
       {!Dream.form_tag} in a template to transparently generate forms that will
       pass these checks. See {!section-templates} and example
       {{:https://github.com/aantron/dream/tree/master/example/d-form#readme}
@@ -992,10 +982,10 @@ module Make
       attacks. It's usually fine to respond to all of them with [400 Bad
       Request]. *)
 
-  (** {2 Upload} *)
+(** {2 Upload} *)
 
-  type multipart_form = (string * (string option * string) list) list
-  (** Submitted file upload forms, [<form enctype="multipart/form-data">]. For
+type multipart_form = (string * (string option * string) list) list
+(** Submitted file upload forms, [<form enctype="multipart/form-data">]. For
       example, if a form
 
       {v
@@ -1040,8 +1030,8 @@ module Make
       OWASP {i File Upload Cheat Sheet}} for security precautions for upload
       forms. *)
 
-  val multipart : ?csrf:bool -> request -> multipart_form form_result
-  (** Like {!Dream.form}, but also reads files, and [Content-Type:] must be
+val multipart : ?csrf:bool -> request -> multipart_form form_result
+(** Like {!Dream.form}, but also reads files, and [Content-Type:] must be
       [multipart/form-data]. The [<form>] tag and CSRF token can be generated in a
       template with
 
@@ -1061,10 +1051,10 @@ module Make
       for prototyping, or with yet-to-be-added file size and count limits. See
       {!Dream.val-upload} below for a streaming version. *)
 
-  (** {2 Streaming uploads} *)
+(** {2 Streaming uploads} *)
 
-  type part = string option * string option * (string * string) list
-  (** Upload form parts.
+type part = string option * string option * (string * string) list
+(** Upload form parts.
 
       A value [Some (name, filename, headers)] received by {!Dream.val-upload}
       begins a {e part} in the stream. A part represents either a form field, or
@@ -1073,8 +1063,8 @@ module Make
       Note that, in the general case, [filename] and [headers] are not reliable.
       [name] is the form field name. *)
 
-  val upload : request -> part option
-  (** Retrieves the next upload part.
+val upload : request -> part option
+(** Retrieves the next upload part.
 
       Upon getting [Some (name, filename, headers)] from this function, the user
       should call {!Dream.upload_part} to stream chunks of the part's data, until
@@ -1092,10 +1082,10 @@ module Make
         [FormData]} in the client to submit [multipart/form-data] by AJAX, and
         include a custom header. *)
 
-  val upload_part : request -> string option
-  (** Retrieves a part chunk. *)
+val upload_part : request -> string option
+(** Retrieves a part chunk. *)
 
-  (** {2 CSRF tokens}
+(** {2 CSRF tokens}
 
       It's usually not necessary to handle CSRF tokens directly.
 
@@ -1108,12 +1098,12 @@ module Make
       {{:https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html}
       OWASP {i Cross-Site Request Forgery Prevention Cheat Sheet}}. *)
 
-  type csrf_result =
-    [ `Ok
-    | `Expired of float
-    | `Wrong_session
-    | `Invalid ]
-  (** CSRF token verification outcomes.
+type csrf_result =
+  [ `Ok
+  | `Expired of float
+  | `Wrong_session
+  | `Invalid ]
+(** CSRF token verification outcomes.
 
       [`Expired] and [`Wrong_session] can occur in normal usage, when a user's
       form or session expire, respectively. However, they can also indicate
@@ -1126,18 +1116,18 @@ module Make
       [`Invalid] can also occur for very old tokens after old keys are no longer
       in use on the server. *)
 
-  val csrf_token : ?valid_for:float -> request -> string
-  (** Returns a fresh CSRF token bound to the given request's and signed with the
+val csrf_token : ?valid_for:float -> request -> string
+(** Returns a fresh CSRF token bound to the given request's and signed with the
       [~secret] given to {!Dream.run}. [~valid_for] is the token's lifetime, in
       seconds. The default value is one hour ([3600.]). Dream uses signed tokens
       that are not stored server-side. *)
 
-  val verify_csrf_token : request -> string -> csrf_result
-  (** Checks that the CSRF token is valid for the {!type-request}'s session. *)
+val verify_csrf_token : request -> string -> csrf_result
+(** Checks that the CSRF token is valid for the {!type-request}'s session. *)
 
-  val csrf_tag : request -> string
+val csrf_tag : request -> string
 
-  (** {1 Templates}
+(** {1 Templates}
 
       Dream includes a template preprocessor that allows interleaving OCaml and
       HTML in the same file:
@@ -1222,15 +1212,15 @@ module Make
       unquoted attribute values, CSS in [<style>] tags, or literal JavaScript in
       [<script>] tags. *)
 
-  val form_tag :
-    ?method_:[< method_] ->
-    ?target:string ->
-    ?enctype:[< `Multipart_form_data] ->
-    ?csrf_token:bool ->
-    action:string ->
-    request ->
-    string
-  (** Generates a [<form>] tag and an [<input>] tag with a CSRF token, suitable
+val form_tag :
+  ?method_:[< method_] ->
+  ?target:string ->
+  ?enctype:[< `Multipart_form_data] ->
+  ?csrf_token:bool ->
+  action:string ->
+  request ->
+  string
+(** Generates a [<form>] tag and an [<input>] tag with a CSRF token, suitable
       for use with {!Dream.val-form} and {!Dream.val-multipart}. For example, in
       a template,
 
@@ -1258,14 +1248,14 @@ module Make
 
       [~csrf_token:false] suppresses generation of the [dream.csrf] field. *)
 
-  (** {1 Middleware}
+(** {1 Middleware}
 
       Interesting built-in middlewares are scattered throughout the various
       sections of these docs, according to where they are relevant. This section
       contains only generic middleware combinators. *)
 
-  val no_middleware : middleware
-  (** Does nothing but call its inner handler. Useful for disabling middleware
+val no_middleware : middleware
+(** Does nothing but call its inner handler. Useful for disabling middleware
       conditionally during application startup:
 
       {[
@@ -1275,8 +1265,8 @@ module Make
           Dream.no_middleware
       ]} *)
 
-  val pipeline : middleware list -> middleware
-  (** Combines a sequence of middlewares into one, such that these two lines are
+val pipeline : middleware list -> middleware
+(** Combines a sequence of middlewares into one, such that these two lines are
       equivalent:
 
       {v
@@ -1286,10 +1276,10 @@ module Make
                   middleware_1 @@ middleware_2 @@ handler
       v} *)
 
-  (** {1 Routing} *)
+(** {1 Routing} *)
 
-  val router : route list -> handler
-  (** Creates a router. If none of the routes match the request, the router
+val router : route list -> handler
+(** Creates a router. If none of the routes match the request, the router
     returns {!Dream.not_found}. Route components starting with [:] are
     parameters, which can be retrieved with {!Dream.param}. See example
     {{:https://github.com/aantron/dream/tree/master/example/3-router#files}
@@ -1325,37 +1315,37 @@ module Make
     because, in the future, it may be possible to query routes for site
     structure metadata. *)
 
-  val get : string -> handler -> route
-  (** Forwards [`GET] requests for the given path to the handler.
+val get : string -> handler -> route
+(** Forwards [`GET] requests for the given path to the handler.
 
       {[
         Dream.get "/home" home_template
       ]} *)
 
-  val post : string -> handler -> route
-  val put : string -> handler -> route
-  val delete : string -> handler -> route
-  val head : string -> handler -> route
-  val connect : string -> handler -> route
-  val options : string -> handler -> route
-  val trace : string -> handler -> route
+val post : string -> handler -> route
+val put : string -> handler -> route
+val delete : string -> handler -> route
+val head : string -> handler -> route
+val connect : string -> handler -> route
+val options : string -> handler -> route
+val trace : string -> handler -> route
 
-  val patch : string -> handler -> route
-  (** Like {!Dream.get}, but for each of the other {{!type-method_} methods}. *)
+val patch : string -> handler -> route
+(** Like {!Dream.get}, but for each of the other {{!type-method_} methods}. *)
 
-  val any : string -> handler -> route
-  (** Like {!Dream.get}, but does not check the method. *)
+val any : string -> handler -> route
+(** Like {!Dream.get}, but does not check the method. *)
 
-  val not_found : handler
-  (** Always responds with [404 Not Found]. *)
+val not_found : handler
+(** Always responds with [404 Not Found]. *)
 
-  (* :((( *)
-  val param : request -> string -> string
-  (** Retrieves the path parameter. If it is missing, {!Dream.param} raises an
+(* :((( *)
+val param : request -> string -> string
+(** Retrieves the path parameter. If it is missing, {!Dream.param} raises an
       exception — the program is buggy. *)
 
-  val scope : string -> middleware list -> route list -> route
-  (** Groups routes under a common path prefix and middlewares. Middlewares are
+val scope : string -> middleware list -> route list -> route
+(** Groups routes under a common path prefix and middlewares. Middlewares are
       run only if a route matches.
 
       {[
@@ -1383,8 +1373,8 @@ module Make
 
       Scopes can be nested. *)
 
-  val no_route : route
-  (** A dummy value of type {!type-route} that is completely ignored by the
+val no_route : route
+(** A dummy value of type {!type-route} that is completely ignored by the
       router. Useful for disabling routes conditionally during application start:
 
       {[
@@ -1396,10 +1386,10 @@ module Make
         ]
       ]} *)
 
-  (** {1 Static files} *)
+(** {1 Static files} *)
 
-  val static : loader:(string -> string -> handler) -> string -> handler
-  (** Serves static files from a local directory. See example
+val static : loader:(string -> string -> handler) -> string -> handler
+(** Serves static files from a local directory. See example
       {{:https://github.com/aantron/dream/tree/master/example/f-static#files}
       [f-static]}.
 
@@ -1429,13 +1419,13 @@ module Make
       {{:https://github.com/aantron/dream/tree/master/example/w-one-binary#files}
       [w-one-binary]} for a loader that serves files from memory instead. *)
 
-  val mime_lookup : string -> (string * string) list
-  (** Returns a [Content-Type:] header based on the given filename. This is mostly
+val mime_lookup : string -> (string * string) list
+(** Returns a [Content-Type:] header based on the given filename. This is mostly
       a wrapper around {{:https://github.com/mirage/ocaml-magic-mime} magic-mime}.
       However, if the result is [text/html], {!Dream.mime_lookup} replaces it with
       [text/html; charset=utf-8], so as to match {!Dream.html}. *)
 
-  (** {1 Sessions}
+(** {1 Sessions}
 
       Dream's default sessions contain string-to-string dictionaries for
       application data. For example, a logged-in session might have
@@ -1469,42 +1459,42 @@ module Make
       {{:https://github.com/aantron/dream/tree/master/example/b-session#files}
       [b-session]} \[{{:http://dream.as/b-session} playground}\]. *)
 
-  val session : string -> request -> string option
-  (** Value from the request's session. *)
+val session : string -> request -> string option
+(** Value from the request's session. *)
 
-  val put_session : string -> string -> request -> unit
-  (** Mutates a value in the request's session. The back end may commit the value
+val put_session : string -> string -> request -> unit
+(** Mutates a value in the request's session. The back end may commit the value
       to storage immediately, so this function returns a promise. *)
 
-  val all_session_values : request -> (string * string) list
-  (** Full session dictionary. *)
+val all_session_values : request -> (string * string) list
+(** Full session dictionary. *)
 
-  val invalidate_session : request -> unit
-  (** Invalidates the request's session, replacing it with a fresh, empty
+val invalidate_session : request -> unit
+(** Invalidates the request's session, replacing it with a fresh, empty
       pre-session. *)
 
-  (** {2 Back ends} *)
+(** {2 Back ends} *)
 
-  val memory_sessions : ?lifetime:float -> middleware
-  (** Stores sessions in server memory. Passes session IDs to clients in cookies.
+val memory_sessions : ?lifetime:float -> middleware
+(** Stores sessions in server memory. Passes session IDs to clients in cookies.
       Session data is lost when the server process exits. *)
 
-  val cookie_sessions : ?lifetime:float -> middleware
-  (** Stores sessions in encrypted cookies. Pass {!Dream.run} [~secret] to be able
+val cookie_sessions : ?lifetime:float -> middleware
+(** Stores sessions in encrypted cookies. Pass {!Dream.run} [~secret] to be able
       to decrypt cookies from previous server runs. *)
 
-  (** {2 Metadata} *)
+(** {2 Metadata} *)
 
-  val session_id : request -> string
-  (** Secret value used to identify a client. *)
+val session_id : request -> string
+(** Secret value used to identify a client. *)
 
-  val session_label : request -> string
-  (** Tracing label suitable for printing to logs. *)
+val session_label : request -> string
+(** Tracing label suitable for printing to logs. *)
 
-  val session_expires_at : request -> float
-  (** Time at which the session will expire. *)
+val session_expires_at : request -> float
+(** Time at which the session will expire. *)
 
-  (** {1 Flash messages}
+(** {1 Flash messages}
 
       Flash messages are short strings which are stored in cookies during one
       request, to be made available for the next request. The typical use case is
@@ -1512,16 +1502,16 @@ module Make
       {{:https://github.com/aantron/dream/tree/master/example/w-flash#files}
       [w-flash]} \[{{:http://dream.as/w-flash} playground}\]. *)
 
-  val flash_messages : middleware
-  (** Implements storing flash messages in cookies. *)
+val flash_messages : middleware
+(** Implements storing flash messages in cookies. *)
 
-  val flash : request -> (string * string) list
-  (** The request's flash messages. *)
+val flash : request -> (string * string) list
+(** The request's flash messages. *)
 
-  val put_flash : request -> string -> string -> unit
-  (** Adds a flash message to the request. *)
+val put_flash : request -> string -> string -> unit
+(** Adds a flash message to the request. *)
 
-  (** {1 Logging}
+(** {1 Logging}
 
       Dream uses the {{:https://erratique.ch/software/logs/doc/Logs/index.html}
       Logs} library internally, and integrates with all other libraries in your
@@ -1535,13 +1525,13 @@ module Make
       OWASP {i Logging Cheat Sheet}} for a survey of security topics related to
       logging. *)
 
-  val logger : middleware
-  (** Logs and times requests. Time spent logging is included. See example
+val logger : middleware
+(** Logs and times requests. Time spent logging is included. See example
       {{:https://github.com/aantron/dream/tree/master/example/2-middleware#files}
       [2-middleware]} \[{{:http://dream.as/2-middleware} playground}\]. *)
 
-  val log : ('a, Format.formatter, unit, unit) format4 -> 'a
-  (** Formats a message and logs it. Disregard the obfuscated type: the first
+val log : ('a, Format.formatter, unit, unit) format4 -> 'a
+(** Formats a message and logs it. Disregard the obfuscated type: the first
       argument is a format string as described in the standard library modules
       {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Printf.html#VALfprintf}
       [Printf]} and
@@ -1556,21 +1546,21 @@ module Make
         Dream.log "Client: %s" (Dream.client request);
       ]} *)
 
-  type ('a, 'b) conditional_log =
-    ((?request:request -> ('a, Format.formatter, unit, 'b) format4 -> 'a) -> 'b) ->
-    unit
-  (** Loggers. This type is difficult to read — instead, see {!Dream.val-error} for
+type ('a, 'b) conditional_log =
+  ((?request:request -> ('a, Format.formatter, unit, 'b) format4 -> 'a) -> 'b) ->
+  unit
+(** Loggers. This type is difficult to read — instead, see {!Dream.val-error} for
       usage. *)
 
-  type log_level =
-    [ `Error
-    | `Warning
-    | `Info
-    | `Debug ]
-  (** Log levels, in order from most urgent to least. *)
+type log_level =
+  [ `Error
+  | `Warning
+  | `Info
+  | `Debug ]
+(** Log levels, in order from most urgent to least. *)
 
-  val error : ('a, unit) conditional_log
-  (** Formats a message and writes it to the log at level [`Error]. The inner
+val error : ('a, unit) conditional_log
+(** Formats a message and writes it to the log at level [`Error]. The inner
       formatting function is called only if the {{!initialize_log} current log
       level} is [`Error] or higher. See example
       {{:https://github.com/aantron/dream/tree/master/example/a-log#files}
@@ -1585,23 +1575,23 @@ module Make
       message with a specific request. If not passed, {!Dream.val-error} will try
       to guess the request. This usually works, but not always. *)
 
-  val warning : ('a, unit) conditional_log
-  val info : ('a, unit) conditional_log
+val warning : ('a, unit) conditional_log
+val info : ('a, unit) conditional_log
 
-  val debug : ('a, unit) conditional_log
-  (** Like {!Dream.val-error}, but for each of the other {{!log_level} log
+val debug : ('a, unit) conditional_log
+(** Like {!Dream.val-error}, but for each of the other {{!log_level} log
       levels}. *)
 
-  type sub_log = {
-    error : 'a. ('a, unit) conditional_log;
-    warning : 'a. ('a, unit) conditional_log;
-    info : 'a. ('a, unit) conditional_log;
-    debug : 'a. ('a, unit) conditional_log;
-  }
-  (** Sub-logs. See {!Dream.val-sub_log} right below. *)
+type sub_log = {
+  error : 'a. ('a, unit) conditional_log;
+  warning : 'a. ('a, unit) conditional_log;
+  info : 'a. ('a, unit) conditional_log;
+  debug : 'a. ('a, unit) conditional_log;
+}
+(** Sub-logs. See {!Dream.val-sub_log} right below. *)
 
-  val sub_log : ?level:[< log_level] -> string -> sub_log
-  (** Creates a new sub-log with the given name. For example,
+val sub_log : ?level:[< log_level] -> string -> sub_log
+(** Creates a new sub-log with the given name. For example,
 
       {[
         let log = Dream.sub_log "myapp.ajax"
@@ -1622,13 +1612,9 @@ module Make
       {{:https://github.com/aantron/dream/tree/master/example/a-log#files}
       [a-log]}. *)
 
-  val initialize_log :
-    ?backtraces:bool ->
-    ?level:[< log_level] ->
-    ?enable:bool ->
-    unit ->
-    unit
-  (** Initializes Dream's log with the given settings.
+val initialize_log :
+  ?backtraces:bool -> ?level:[< log_level] -> ?enable:bool -> unit -> unit
+(** Initializes Dream's log with the given settings.
 
       Dream initializes its logging back end lazily. This is so that if a Dream
       Web app is linked into a larger binary, it does not affect that binary's
@@ -1652,10 +1638,10 @@ module Make
       - [~enable:false] disables Dream logging completely. This can help sanitize
         output during testing. *)
 
-  val set_log_level : string -> [< log_level] -> unit
-  (** Set the log level threshold of the given sub-log. *)
+val set_log_level : string -> [< log_level] -> unit
+(** Set the log level threshold of the given sub-log. *)
 
-  (** {1 Errors}
+(** {1 Errors}
 
       Dream passes all errors to a single error handler, including...
 
@@ -1680,17 +1666,17 @@ module Make
       For full control over error handling, including logging, you can define an
       {!type-error_handler} directly. *)
 
-  type error = {
-    condition : [`Response of response | `String of string | `Exn of exn];
-    layer : [`App | `HTTP | `HTTP2 | `TLS | `WebSocket];
-    caused_by : [`Server | `Client];
-    request : request option;
-    response : response option;
-    client : string option;
-    severity : log_level;
-    will_send_response : bool;
-  }
-  (** Detailed errors. Ignore this type if only using {!Dream.error_template}.
+type error = {
+  condition : [`Response of response | `String of string | `Exn of exn];
+  layer : [`App | `HTTP | `HTTP2 | `TLS | `WebSocket];
+  caused_by : [`Server | `Client];
+  request : request option;
+  response : response option;
+  client : string option;
+  severity : log_level;
+  will_send_response : bool;
+}
+(** Detailed errors. Ignore this type if only using {!Dream.error_template}.
 
       {ul
       {li
@@ -1764,8 +1750,8 @@ module Make
       [true].
       }} *)
 
-  type error_handler = error -> response option
-  (** Error handlers log errors and convert them into responses. Ignore if using
+type error_handler = error -> response option
+(** Error handlers log errors and convert them into responses. Ignore if using
       {!Dream.error_template}.
 
       If the error has [will_send_response = true], the error handler must return
@@ -1777,11 +1763,10 @@ module Make
 
       The behavior of Dream's default error handler is described at
       {!Dream.type-error}. *)
-  (* TODO Get rid of the option? *)
+(* TODO Get rid of the option? *)
 
-  val error_template :
-    (error -> string -> response -> response) -> error_handler
-  (** Builds an {!error_handler} from a template. See example
+val error_template : (error -> string -> response -> response) -> error_handler
+(** Builds an {!error_handler} from a template. See example
       {{:https://github.com/aantron/dream/tree/master/example/9-error#files}
       [9-error]} \[{{:http://dream.as/9-error} playground}\].
 
@@ -1821,14 +1806,14 @@ module Make
       If the template itself raises an exception or rejects, an empty [500
       Internal Server Error] will be sent in contexts that require a response. *)
 
-  val catch : (error -> response) -> middleware
-  (** Forwards exceptions, rejections, and [4xx], [5xx] responses from the
+val catch : (error -> response) -> middleware
+(** Forwards exceptions, rejections, and [4xx], [5xx] responses from the
       application to the error handler. See {!section-errors}. *)
-  (* TODO Error handler should not return an option, and then the type can be
-      used here. *)
+(* TODO Error handler should not return an option, and then the type can be
+    used here. *)
 
-  val with_site_prefix : string -> middleware
-  (** Removes the given prefix from the path in each request, and adds it to the
+val with_site_prefix : string -> middleware
+(** Removes the given prefix from the path in each request, and adds it to the
       request prefix. Responds with [502 Bad Gateway] if the path does not have
       the expected prefix.
 
@@ -1836,13 +1821,13 @@ module Make
       domain. The default is ["/"], for no prefix. After [with_site_prefix],
       routing is done relative to the prefix, and the prefix is also necessary for
       emitting secure cookies. *)
-  (* TODO Clarify that this isn't included with the built-ins, but is something on
-      topic that one might want to use. *)
+(* TODO Clarify that this isn't included with the built-ins, but is something on
+    topic that one might want to use. *)
 
-  (** {1:web_formats Web formats} *)
+(** {1:web_formats Web formats} *)
 
-  val html_escape : string -> string
-  (** Escapes a string so that it is suitable for use as text inside HTML
+val html_escape : string -> string
+(** Escapes a string so that it is suitable for use as text inside HTML
       elements and quoted attribute values. Implements
       {{:https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html#rule-1-html-encode-before-inserting-untrusted-data-into-html-element-content}
       OWASP {i Cross-Site Scripting Prevention Cheat Sheet RULE #1}}.
@@ -1852,8 +1837,8 @@ module Make
       {{:https://github.com/aantron/dream/tree/master/example/7-template#security}
       [7-template]}. *)
 
-  val to_base64url : string -> string
-  (** Converts the given string its base64url encoding, as specified in
+val to_base64url : string -> string
+(** Converts the given string its base64url encoding, as specified in
       {{:https://tools.ietf.org/html/rfc4648#section-5} RFC 4648 §5}, using a
       Web-safe alphabet and no padding. The resulting string can be used without
       escaping in URLs, form data, cookies, HTML content, attributes, and
@@ -1861,11 +1846,11 @@ module Make
       {{:https://mirage.github.io/ocaml-base64/base64/Base64/index.html} Base64}
       library.*)
 
-  val from_base64url : string -> string option
-  (** Inverse of {!Dream.to_base64url}. *)
+val from_base64url : string -> string option
+(** Inverse of {!Dream.to_base64url}. *)
 
-  val to_percent_encoded : ?international:bool -> string -> string
-  (** Percent-encodes a string for use inside a URL.
+val to_percent_encoded : ?international:bool -> string -> string
+(** Percent-encodes a string for use inside a URL.
 
       [~international] is [true] by default, and causes non-ASCII bytes to be
       preserved. This is suitable for display to users, including in [<a href="">]
@@ -1878,36 +1863,36 @@ module Make
       from different writing scripts can be used to mislead users about the
       targets of links. *)
 
-  val from_percent_encoded : string -> string
-  (** Inverse of {!Dream.to_percent_encoded}. *)
+val from_percent_encoded : string -> string
+(** Inverse of {!Dream.to_percent_encoded}. *)
 
-  val to_form_urlencoded : (string * string) list -> string
-  (** Inverse of {!Dream.from_form_urlencoded}. Percent-encodes names and
+val to_form_urlencoded : (string * string) list -> string
+(** Inverse of {!Dream.from_form_urlencoded}. Percent-encodes names and
       values. *)
 
-  val from_form_urlencoded : string -> (string * string) list
-  (** Converts form data or a query string from
+val from_form_urlencoded : string -> (string * string) list
+(** Converts form data or a query string from
       [application/x-www-form-urlencoded] format to a list of name-value pairs.
       See {{:https://tools.ietf.org/html/rfc1866#section-8.2.1} RFC 1866
       §8.2.1}. Reverses the percent-encoding of names and values. *)
 
-  val from_cookie : string -> (string * string) list
-  (** Converts a [Cookie:] header value to key-value pairs. See
+val from_cookie : string -> (string * string) list
+(** Converts a [Cookie:] header value to key-value pairs. See
       {{:https://tools.ietf.org/html/draft-ietf-httpbis-rfc6265bis-07#section-4.2.1}
       RFC 6265bis §4.2.1}. Does not apply any decoding to names and values. *)
 
-  val to_set_cookie :
-    ?expires:float ->
-    ?max_age:float ->
-    ?domain:string ->
-    ?path:string ->
-    ?secure:bool ->
-    ?http_only:bool ->
-    ?same_site:[`Strict | `Lax | `None] ->
-    string ->
-    string ->
-    string
-  (** [Dream.to_set_cookie name value] formats a [Set-Cookie:] header value. The
+val to_set_cookie :
+  ?expires:float ->
+  ?max_age:float ->
+  ?domain:string ->
+  ?path:string ->
+  ?secure:bool ->
+  ?http_only:bool ->
+  ?same_site:[`Strict | `Lax | `None] ->
+  string ->
+  string ->
+  string
+(** [Dream.to_set_cookie name value] formats a [Set-Cookie:] header value. The
       optional arguments correspond to the attributes specified in
       {{:https://tools.ietf.org/html/draft-ietf-httpbis-rfc6265bis-07#section-5.3}
       RFC 6265bis §5.3}, and are documented at {!Dream.set_cookie}.
@@ -1915,11 +1900,11 @@ module Make
       Does not apply any encoding to names and values. Be sure to encode so that
       names and values cannot contain `=`, `;`, or newline characters. *)
 
-  val split_target : string -> string * string
-  (** Splits a request target into a path and a query string. *)
+val split_target : string -> string * string
+(** Splits a request target into a path and a query string. *)
 
-  val from_path : string -> string list
-  (** Splits the string into components on [/] and percent-decodes each component.
+val from_path : string -> string list
+(** Splits the string into components on [/] and percent-decodes each component.
       Empty components are dropped, except for the last. This function does not
       distinguish between absolute and relative paths, and is only meant for
       routes and request targets. So,
@@ -1936,29 +1921,29 @@ module Make
       strings ([?]), and {!Dream.from_path} does not treat them specially. Split
       query strings off with {!Dream.split_target} first. *)
 
-  val to_path : ?relative:bool -> ?international:bool -> string list -> string
-  (** Percent-encodes a list of path components and joins them with [/] into a
+val to_path : ?relative:bool -> ?international:bool -> string list -> string
+(** Percent-encodes a list of path components and joins them with [/] into a
       path. Empty components, except for the last, are removed. The path is
       absolute by default. Use [~relative:true] for a relative path.
       {!Dream.to_path} uses an IRI-friendly percent encoder, which preserves UTF-8
       bytes in unencoded form. Use [~international:false] to percent-encode those
       bytes as well, for legacy protocols that require ASCII URLs. *)
 
-  val drop_trailing_slash : string list -> string list
-  (** Changes the representation of path [abc/] to the representation of [abc] by
+val drop_trailing_slash : string list -> string list
+(** Changes the representation of path [abc/] to the representation of [abc] by
       checking if the last element in the list is [""], and, if it is, dropping
       it. *)
 
-  val text_html : string
-  (** The string ["text/html; charset=utf-8"] for [Content-Type:] headers. *)
+val text_html : string
+(** The string ["text/html; charset=utf-8"] for [Content-Type:] headers. *)
 
-  val application_json : string
-  (** The string ["application/json"] for [Content-Type:] headers. *)
+val application_json : string
+(** The string ["application/json"] for [Content-Type:] headers. *)
 
-  (** {1 Cryptography} *)
+(** {1 Cryptography} *)
 
-  val set_secret : ?old_secrets:string list -> string -> middleware
-  (** Sets a key to be used for cryptographic operations, such as signing CSRF
+val set_secret : ?old_secrets:string list -> string -> middleware
+(** Sets a key to be used for cryptographic operations, such as signing CSRF
       tokens and encrypting cookies.
 
       If this middleware is not used, a random secret is generated the first time
@@ -1980,13 +1965,13 @@ module Make
       serving 1000 fresh encrypted cookies per second should rotate keys about
       once a year. *)
 
-  val random : int -> string
-  (** Generates the requested number of bytes using a
+val random : int -> string
+(** Generates the requested number of bytes using a
       {{:https://github.com/mirage/mirage-crypto} cryptographically secure random
       number generator}. *)
 
-  val encrypt : ?associated_data:string -> request -> string -> string
-  (** Signs and encrypts the string using the [~secret] in the request. See
+val encrypt : ?associated_data:string -> request -> string -> string
+(** Signs and encrypts the string using the [~secret] in the request. See
       {!Dream.run} for setting [~secret].
 
       [~associated_data] is included when computing the signature, but not
@@ -2016,51 +2001,52 @@ module Make
       {{:https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html}
       OWASP {i Password Storage Cheat Sheet}}. *)
 
-  val decrypt : ?associated_data:string -> request -> string -> string option
-  (** Reverses {!Dream.encrypt}.
+val decrypt : ?associated_data:string -> request -> string -> string option
+(** Reverses {!Dream.encrypt}.
 
       To support secret rotation, the decryption secrets with which decryption is
       attempted are [(~secret)::(~old_secrets)]. See the descriptions of [~secret]
       and [~old_secrets] in {!Dream.run}. *)
 
-  (** {1 Variables}
+(** {1 Variables}
 
       Dream supports user-defined per-message variables for use by middlewares. *)
 
-  type 'a field
-  (** Per-message variable. *)
+type 'a field
+(** Per-message variable. *)
 
-  val new_field : ?name:string -> ?show_value:('a -> string) -> unit -> 'a field
-  (** Declares a variable of type ['a] in all messages. The variable is initially
+val new_field : ?name:string -> ?show_value:('a -> string) -> unit -> 'a field
+(** Declares a variable of type ['a] in all messages. The variable is initially
       unset in each message. The optional [~name] and [~show_value] are used by
       {!Dream.run} [~debug] to show the variable in debug dumps. *)
 
-  val field : 'b message -> 'a field -> 'a option
-  (** Retrieves the value of the per-message variable. *)
+val field : 'b message -> 'a field -> 'a option
+(** Retrieves the value of the per-message variable. *)
 
-  val set_field : 'b message -> 'a field -> 'a -> unit
-  (** Sets the per-message variable to the value. *)
+val set_field : 'b message -> 'a field -> 'a -> unit
+(** Sets the per-message variable to the value. *)
 
-  val echo : handler
-  (** Responds with the request body. *)
+val echo : handler
+(** Responds with the request body. *)
 
-  val https :
-    ?stop:Lwt_switch.t ->
-    port:int ->
-    ?prefix:string ->
-    Stack.TCP.t ->
-    ?cfg:Tls.Config.server ->
-    ?error_handler:error_handler ->
-    handler ->
-    unit Lwt.t
+val https :
+  port:int ->
+  ?prefix:string ->
+  < net : Eio.Net.t
+  ; clock : Eio.Time.clock
+  ; mono : Eio.Time.Mono.t
+  ; secure_random : Eio.Flow.source
+  ; .. > ->
+  ?cfg:Tls.Config.server ->
+  ?error_handler:error_handler ->
+  handler ->
+  unit
 
-  val http :
-    ?stop:Lwt_switch.t ->
-    port:int ->
-    ?prefix:string ->
-    ?protocol:[`H2 | `HTTP_1_1] ->
-    Stack.TCP.t ->
-    ?error_handler:error_handler ->
-    handler ->
-    unit Lwt.t
-end
+val http :
+  port:int ->
+  ?prefix:string ->
+  ?protocol:[`H2 | `HTTP_1_1] ->
+  < net : Eio.Net.t ; clock : Eio.Time.clock ; .. > ->
+  ?error_handler:error_handler ->
+  handler ->
+  unit

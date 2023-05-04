@@ -2,19 +2,16 @@
  (public_name dream-mirage)
  (name dream__mirage)
  (libraries
-  bigarray-compat
   bigstringaf
   digestif
   dream.cipher
   dream.server
   dream.certificate
   dream-pure
-  dream-httpaf.dream-h2
-  lwt
-  rresult
+  dream-httpaf.dream-h2-eio
+  dream-httpaf.dream-httpaf_-eio
+  dream-httpaf.dream-gluten-eio
   tcpip
-  dream-mirage.dream-paf
-  dream-mirage.dream-paf.alpn
-  dream-mirage.dream-paf.mirage
+  tls-eio
  )
  (instrumentation (backend bisect_ppx)))

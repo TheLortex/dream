@@ -1,244 +1,397 @@
-module Httpaf = Dream_httpaf_.Httpaf
+(* This file is part of Dream, released under the MIT license. See LICENSE.md
+   for details, or visit https://github.com/aantron/dream.
 
-module Catch = Dream__server.Catch
-module Error_template = Dream__server.Error_template
-module Method = Dream_pure.Method
-module Helpers = Dream__server.Helpers
-module Log = Dream__server.Log
-module Message = Dream_pure.Message
-module Status = Dream_pure.Status
-module Stream = Dream_pure.Stream
+   Copyright 2021 Anton Bachin *)
 
 
-let log =
-  Dream__server.Log.sub_log "dream.mirage"
 
-let select_log = function
-  | `Error -> log.error
-  | `Warning -> log.warning
-  | `Info -> log.info
-  | `Debug -> log.debug
+   module Httpaf = Dream_httpaf_.Httpaf
+   module H2 = Dream_h2.H2
 
-  let dump (error : Catch.error) =
-    let buffer = Buffer.create 4096 in
-    let p format = Printf.bprintf buffer format in
+   module Catch = Dream__server.Catch
+   module Error_template = Dream__server.Error_template
+   module Method = Dream_pure.Method
+   module Helpers = Dream__server.Helpers
+   module Log = Dream__server.Log
+   module Message = Dream_pure.Message
+   module Status = Dream_pure.Status
+   module Stream = Dream_pure.Stream
 
-    begin match error.condition with
-    | `Response response ->
-      let status = Message.status response in
-      p "%i %s\n" (Status.status_to_int status) (Status.status_to_string status)
 
-    | `String "" ->
-      p "(Library error without description payload)\n"
 
-    | `String string ->
-      p "%s\n" string
+   (* TODO DOC The error handler is almost a middleware. But it needs to plug in to
+      the lower levels of the framework. Also, a benefit of it not being directly
+      a middleware is that it cannot wrongly appear composed into deeper levels of
+      an app. *)
 
-    | `Exn exn ->
-      let backtrace = Printexc.get_backtrace () in
-      p "%s\n" (Printexc.to_string exn);
-      backtrace |> Log.iter_backtrace (p "%s\n")
-    end;
+   let log =
+     Log.sub_log "dream.http"
 
-    p "\n";
+   let select_log = function
+     | `Error -> log.error
+     | `Warning -> log.warning
+     | `Info -> log.info
+     | `Debug -> log.debug
 
-    let layer =
-      match error.layer with
-      | `TLS -> "TLS library"
-      | `HTTP -> "HTTP library"
-      | `HTTP2 -> "HTTP2 library"
-      | `WebSocket -> "WebSocket library"
-      | `App -> "Application"
-    in
 
-    let blame =
-      match error.caused_by with
-      | `Server -> "Server"
-      | `Client -> "Client"
-    in
 
-    let severity =
-      match error.severity with
-      | `Error -> "Error"
-      | `Warning -> "Warning"
-      | `Info -> "Info"
-      | `Debug -> "Debug"
-    in
+   let dump (error : Catch.error) =
+     let buffer = Buffer.create 4096 in
+     let p format = Printf.bprintf buffer format in
 
-    p "From: %s\n" layer;
-    p "Blame: %s\n" blame;
-    p "Severity: %s" severity;
+     begin match error.condition with
+     | `Response response ->
+       let status = Message.status response in
+       p "%i %s\n" (Status.status_to_int status) (Status.status_to_string status)
 
-    begin match error.client with
-    | None -> ()
-    | Some client -> p "\n\nClient: %s" client
-    end;
+     | `String "" ->
+       p "(Library error without description payload)\n"
 
-    begin match error.request with
-    | None -> ()
-    | Some request ->
-      p "\n\n%s %s"
-        (Method.method_to_string (Message.method_ request))
-        (Message.target request);
+     | `String string ->
+       p "%s\n" string
 
-      Message.all_headers request
-      |> List.iter (fun (name, value) -> p "\n%s: %s" name value);
+     | `Exn exn ->
+       let backtrace = Printexc.get_backtrace () in
+       p "%s\n" (Printexc.to_string exn);
+       backtrace |> Log.iter_backtrace (p "%s\n")
+     end;
 
-      Message.fold_fields (fun name value first ->
-        if first then
-          p "\n";
-        p "\n%s: %s" name value;
-        false)
-        true
-        request
-      |> ignore
-    end;
+     p "\n";
 
-    Buffer.contents buffer
+     let layer =
+       match error.layer with
+       | `TLS -> "TLS library"
+       | `HTTP -> "HTTP library"
+       | `HTTP2 -> "HTTP2 library"
+       | `WebSocket -> "WebSocket library"
+       | `App -> "Application"
+     in
 
-  let customize template (error : Catch.error) =
+     let blame =
+       match error.caused_by with
+       | `Server -> "Server"
+       | `Client -> "Client"
+     in
 
-    (* First, log the error. *)
+     let severity =
+       match error.severity with
+       | `Error -> "Error"
+       | `Warning -> "Warning"
+       | `Info -> "Info"
+       | `Debug -> "Debug"
+     in
 
-    begin match error.condition with
-    | `Response _ -> ()
-    | `String _ | `Exn _ as condition ->
+     p "From: %s\n" layer;
+     p "Blame: %s\n" blame;
+     p "Severity: %s" severity;
 
-      let client =
-        match error.client with
-        | None -> ""
-        | Some client ->  " (" ^ client ^ ")"
-      in
+     begin match error.client with
+     | None -> ()
+     | Some client -> p "\n\nClient: %s" client
+     end;
 
-      let layer =
-        match error.layer with
-        | `TLS -> ["TLS" ^ client]
-        | `HTTP -> ["HTTP" ^ client]
-        | `HTTP2 -> ["HTTP/2" ^ client]
-        | `WebSocket -> ["WebSocket" ^ client]
-        | `App -> []
-      in
+     begin match error.request with
+     | None -> ()
+     | Some request ->
+       p "\n\n%s %s"
+         (Method.method_to_string (Message.method_ request))
+         (Message.target request);
 
-      let description, backtrace =
-        match condition with
-        | `String string -> string, ""
-        | `Exn exn ->
-          let backtrace = Printexc.get_backtrace () in
-          Printexc.to_string exn, backtrace
-      in
+       Message.all_headers request
+       |> List.iter (fun (name, value) -> p "\n%s: %s" name value);
 
-      let message = String.concat ": " (layer @ [description]) in
+       Message.fold_fields (fun name value first ->
+         if first then
+           p "\n";
+         p "\n%s: %s" name value;
+         false)
+         true
+         request
+       |> ignore
+     end;
 
-      select_log error.severity (fun log ->
-        log ?request:error.request "%s" message);
-      backtrace |> Log.iter_backtrace (fun line ->
-        select_log error.severity (fun log ->
-          log ?request:error.request "%s" line))
-    end;
+     Buffer.contents buffer
 
-    (* If Dream will not send a response for this error, we are done after
-       logging. Otherwise, if debugging is enabled, gather a bunch of information.
-       Then, call the template, and return the response. *)
+   (* TODO LATER Some library is registering S-exp-based printers for expressions,
+      which are calling functions that use exceptions during parsing, which are
+      clobbering the backtrace. *)
+   let customize template (error : Catch.error) =
 
-    if not error.will_send_response then
-      None
+     (* First, log the error. *)
 
-    else
-      let debug_dump = dump error in
+     begin match error.condition with
+     | `Response _ -> ()
+     | `String _ | `Exn _ as condition ->
 
-      let response =
-        match error.condition with
-        | `Response response -> response
-        | _ ->
-          let status =
-            match error.caused_by with
-            | `Server -> `Internal_Server_Error
-            | `Client -> `Bad_Request
-          in
-          Message.response ~status Stream.empty Stream.null
-      in
+       let client =
+         match error.client with
+         | None -> ""
+         | Some client ->  " (" ^ client ^ ")"
+       in
 
-      (* No need to catch errors when calling the template, because every call
-         site of the error handler already has error handlers for catching double
-         faults. *)
-      let response = template error debug_dump response in
-      Some response
+       let layer =
+         match error.layer with
+         | `TLS -> ["TLS" ^ client]
+         | `HTTP -> ["HTTP" ^ client]
+         | `HTTP2 -> ["HTTP/2" ^ client]
+         | `WebSocket -> ["WebSocket" ^ client]
+         | `App -> []
+       in
 
-  let default_response = function
-    | `Server ->
-      Message.response ~status:`Internal_Server_Error Stream.empty Stream.null
-    | `Client ->
-      Message.response ~status:`Bad_Request Stream.empty Stream.null
+       let description, backtrace =
+         match condition with
+         | `String string -> string, ""
+         | `Exn exn ->
+           let backtrace = Printexc.get_backtrace () in
+           Printexc.to_string exn, backtrace
+       in
 
-let default_template _error _debug_dump response =
-  response
+       let message = String.concat ": " (layer @ [description]) in
 
-let default =
-  customize default_template
+       select_log error.severity (fun log ->
+         log ?request:error.request "%s" message);
+       backtrace |> Log.iter_backtrace (fun line ->
+         select_log error.severity (fun log ->
+           log ?request:error.request "%s" line))
+     end;
 
-let double_faults f default =
-  try f () with exn ->
-    let backtrace = Printexc.get_backtrace () in
+     (* If Dream will not send a response for this error, we are done after
+        logging. Otherwise, if debugging is enabled, gather a bunch of information.
+        Then, call the template, and return the response. *)
 
-    log.error (fun log ->
-      log "Error handler raised: %s" (Printexc.to_string exn));
+     if not error.will_send_response then
+       None
 
-    backtrace
-    |> Log.iter_backtrace (fun line ->
-      log.error (fun log -> log "%s" line));
+     else
+       let debug_dump = dump error in
 
-    default ()
+       let response =
+         match error.condition with
+         | `Response response -> response
+         | _ ->
+           let status =
+             match error.caused_by with
+             | `Server -> `Internal_Server_Error
+             | `Client -> `Bad_Request
+           in
+           Message.response ~status Stream.empty Stream.null
+       in
 
-let httpaf user's_error_handler = fun client_address ?request:_ error start_response ->
-  let condition, severity, caused_by = match error with
-    | `Exn exn ->
-      `Exn exn,
-      `Error,
-      `Server
-    | `Bad_request
-    | `Bad_gateway ->
-      `String "Bad request",
-      `Warning,
-      `Client
-    | `Internal_server_error ->
-      `String "Content-Length missing or negative",
-      `Error,
-      `Server in
-  let error = {
-    Catch.condition;
-    layer = `HTTP;
-    caused_by;
-    request = None;
-    response = None;
-    client= Some client_address;
-    severity;
-    will_send_response = true;
-  } in
+       (* No need to catch errors when calling the template, because every call
+          site of the error handler already has error handlers for catching double
+          faults. *)
+       let response = template error debug_dump response in
+       Some response
 
-  begin
-    double_faults begin fun () ->
-      let response = user's_error_handler error in
-      let response = match response with
-        | Some response -> response
-        | None -> default_response caused_by in
-      let headers = Httpaf.Headers.of_list (Message.all_headers response) in
-      let body = start_response headers in
-      Adapt.forward_body response body
-    end (fun () -> ())
-  end
 
-let respond_with_option f =
-  begin
-    double_faults
-      (fun () ->
+
+   let default_template _error _debug_dump response =
+     response
+
+   let debug_template _error debug_dump response =
+     let status = Message.status response in
+     let code = Status.status_to_int status
+     and reason = Status.status_to_string status in
+     Message.set_header response "Content-Type" Dream_pure.Formats.text_html;
+     Message.set_body response (Error_template.render ~debug_dump ~code ~reason);
+     response
+
+   let default =
+     customize default_template
+
+   let debug_error_handler =
+     customize debug_template
+
+
+
+   (* Error reporters (called in various places by the framework). *)
+
+
+
+   let double_faults f default =
+     try f () with exn ->
+       let backtrace = Printexc.get_backtrace () in
+
+       log.error (fun log ->
+         log "Error handler raised: %s" (Printexc.to_string exn));
+
+       backtrace
+       |> Log.iter_backtrace (fun line ->
+         log.error (fun log -> log "%s" line));
+
+       default ()
+
+   (* If the user's handler fails to provide a response, return an empty 500
+      response. Don't return the original response we passed to the error handler,
+      because the app may have been using that to communicate some internal
+      information to the error handler. Not returning a response from the handler
+      is a programming error, so it's probably fine to return a generic server
+      error. *)
+   let respond_with_option f =
+     double_faults
+       (fun () ->
          match f () with
          | Some response -> response
          | None ->
            Message.response
              ~status:`Internal_Server_Error Stream.empty Stream.null)
-      (fun () ->
-         Message.response ~status:`Internal_Server_Error Stream.empty Stream.null)
-  end
+       (fun () ->
+         Message.response ~status:`Internal_Server_Error Stream.empty Stream.null
+       )
 
-let app user's_error_handler = fun error ->
-  respond_with_option (fun () -> user's_error_handler error)
+
+
+   (* In the functions below, the first row or set of arguments comes from the
+      framework, by partial application, and the second row or set (after "fun")
+      comes from the state machine (http/af, h2, websocket/af, ocaml-tls, etc.) *)
+
+   (* This error handler actually *is* a middleware, but it is just one pathway for
+      reaching the centralized error handler provided by the user, so it is built
+      into the framework. *)
+
+   let app
+       user's_error_handler =
+       fun error ->
+
+     respond_with_option (fun () -> user's_error_handler error)
+
+
+
+   let default_response = function
+     | `Server ->
+       Message.response ~status:`Internal_Server_Error Stream.empty Stream.null
+     | `Client ->
+       Message.response ~status:`Bad_Request Stream.empty Stream.null
+
+   let httpaf
+       user's_error_handler =
+       fun client_address ?request error start_response ->
+
+     ignore (request : Httpaf.Request.t option);
+     (* TODO LATER Should factor out the request translation function and use it to
+        partially recover the request info. *)
+
+     let condition, severity, caused_by =
+       match error with
+       | `Exn exn ->
+         `Exn exn,
+         `Error,
+         `Server
+
+       | `Bad_request
+       | `Bad_gateway ->
+         `String "Bad request",
+         `Warning,
+         `Client
+
+       | `Internal_server_error ->
+         `String "Content-Length missing or negative",
+         `Error,
+         `Server
+     in
+
+     let error = {
+       Catch.condition;
+       layer = `HTTP;
+       caused_by;
+       request = None;
+       response = None;
+       client =None;
+       severity;
+       will_send_response = true;
+     } in
+
+       double_faults begin fun () ->
+         let response = user's_error_handler error in
+
+         let response =
+           match response with
+           | Some response -> response
+           | None -> default_response caused_by
+         in
+
+         let headers = Httpaf.Headers.of_list (Message.all_headers response) in
+         let body = start_response headers in
+
+         Adapt.forward_body response body
+       end
+         (fun () -> ())
+
+
+
+   let h2
+       user's_error_handler =
+       fun client_address ?request error start_response ->
+
+     ignore request; (* TODO Recover something from the request. *)
+
+     let condition, severity, caused_by =
+       match error with
+       | `Exn exn ->
+         `Exn exn,
+         `Error,
+         `Server
+
+       | `Bad_request ->
+         `String "Bad request",
+         `Warning,
+         `Client
+
+       | `Internal_server_error ->
+         `String "Content-Length missing or negative",
+         `Error,
+         `Server
+         (* TODO LATER When does H2 raise `Internal_server_error? *)
+     in
+
+     let error = {
+       Catch.condition;
+       layer = `HTTP2;
+       caused_by;
+       request = None;
+       response = None;
+       client = None;
+       severity;
+       will_send_response = true;
+     } in
+
+       double_faults begin fun () ->
+         let response = user's_error_handler error in
+
+         let response =
+           match response with
+           | Some response -> response
+           | None -> default_response caused_by
+         in
+
+         let headers = H2.Headers.of_list (Message.all_headers response) in
+         let body = start_response headers in
+
+         Adapt.forward_body_h2 response body
+       end
+         (fun () -> ())
+
+
+
+   (* The protocol state machines (http/af, etc.) try to pass all errors generated
+      inside their request handlers to their own error handlers. In addition, all
+      user code run by Dream is wrapped in Lwt.catch to catch all user errors.
+      However, SSL protocol errors are not wrapped in any of these, so we add an
+      edditional top-level handler to catch them. *)
+   let tls
+       user's_error_handler client_address error =
+
+     let error = {
+       Catch.condition = `Exn error;
+       layer = `TLS;
+       caused_by = `Client;
+       request = None;
+       response = None;
+       client = None;
+       severity = `Warning;
+       will_send_response = false;
+     } in
+
+       double_faults
+         (fun () -> user's_error_handler error |> ignore)
+         (fun () -> ())
