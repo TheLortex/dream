@@ -38,10 +38,10 @@ module Wrap = struct
      that ordinarily shouldn't be relied on by the user - this is just our last
      chance to tell the user that something is wrong with their app. *)
   (* TODO Rename conn like in the body branch. *)
-  let wrap_handler tls (user's_error_handler : Catch.error_handler)
+  let wrap_handler tls (_user's_error_handler : Catch.error_handler)
       (user's_dream_handler : Message.handler) =
-    let httpaf_request_handler client_address (conn : _ Gluten.Reqd.t) =
-      let conn, upgrade = (conn.reqd, conn.upgrade) in
+    let httpaf_request_handler _client_address (conn : _ Gluten.Reqd.t) =
+      let conn, _upgrade = (conn.reqd, conn.upgrade) in
 
       (* Covert the http/af request to a Dream request. *)
       let httpaf_request : Httpaf.Request.t = Httpaf.Reqd.request conn in
@@ -111,7 +111,7 @@ module Wrap = struct
 
           match Message.get_websocket response with
           | None -> forward_response response
-          | Some (client_stream, _server_stream) ->
+          | Some (_client_stream, _server_stream) ->
             (* let's not support websockets at first*)
             assert false
         with exn ->
@@ -126,7 +126,7 @@ module Wrap = struct
   (* TODO Factor out what is in common between the http/af and h2 handlers. *)
   let wrap_handler_h2 tls (_user's_error_handler : Catch.error_handler)
       (user's_dream_handler : Message.handler) =
-    let httpaf_request_handler client_address (conn : H2.Reqd.t) =
+    let httpaf_request_handler _client_address (conn : H2.Reqd.t) =
       (* Covert the h2 request to a Dream request. *)
       let httpaf_request : H2.Request.t = H2.Reqd.request conn in
 
@@ -427,21 +427,23 @@ let new_field = Message.new_field
 let field = Message.field
 let set_field = Message.set_field
 
-let built_in_middleware prefix error_handler =
+let _built_in_middleware prefix error_handler =
   Message.pipeline
     [
       Dream__server.Catch.catch (Error_handler.app error_handler);
       Dream__server.Site_prefix.with_site_prefix prefix;
     ]
 
+let failwith_error_msg = function Ok v -> v | Error (`Msg m) -> failwith m
+
 let localhost_certificate =
   let crts =
-    Rresult.R.failwith_error_msg
+    failwith_error_msg
       (X509.Certificate.decode_pem_multiple
          (Cstruct.of_string Dream__certificate.localhost_certificate))
   in
   let key =
-    Rresult.R.failwith_error_msg
+    failwith_error_msg
       (X509.Private_key.decode_pem
          (Cstruct.of_string Dream__certificate.localhost_certificate_key))
   in
@@ -449,7 +451,7 @@ let localhost_certificate =
 
 open Dream_httpaf__eio
 
-let https ~port ?(prefix = "") env
+let https ~port ?prefix:_ env
     ?(cfg =
       Tls.Config.server ~alpn_protocols:["http/1.1"]
         ~certificates:localhost_certificate ())
@@ -496,7 +498,7 @@ let https ~port ?(prefix = "") env
     Eio.Net.accept_fork ~sw socket ~on_error:(fun _ -> ()) handler
   done
 
-let http ~port ?(prefix = "") ?(protocol = `HTTP_1_1) env
+let http ~port ?prefix:_ ?protocol:_ env
     ?error_handler:(user's_error_handler = Error_handler.default)
     user's_dream_handler =
   initialize ~setup_outputs:ignore;

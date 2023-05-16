@@ -265,7 +265,7 @@
 
    let httpaf
        user's_error_handler =
-       fun client_address ?request error start_response ->
+       fun _client_address ?request error start_response ->
 
      ignore (request : Httpaf.Request.t option);
      (* TODO LATER Should factor out the request translation function and use it to
@@ -321,7 +321,7 @@
 
    let h2
        user's_error_handler =
-       fun client_address ?request error start_response ->
+       fun _client_address ?request error start_response ->
 
      ignore request; (* TODO Recover something from the request. *)
 
@@ -379,7 +379,7 @@
       However, SSL protocol errors are not wrapped in any of these, so we add an
       edditional top-level handler to catch them. *)
    let tls
-       user's_error_handler client_address error =
+       user's_error_handler _client_address error =
 
      let error = {
        Catch.condition = `Exn error;
